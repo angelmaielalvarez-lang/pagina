@@ -1,0 +1,885 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SysDiag — Diagramas</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&family=Exo+2:wght@300;400;700;900&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #050810;
+  --panel: #0a0f1e;
+  --border: #1a2a4a;
+  --accent: #00e5ff;
+  --ok: #39ff14;
+  --warn: #ffcc00;
+  --danger: #ff2d55;
+  --purple: #b06aff;
+  --orange: #ff6b35;
+  --text: #c8deff;
+  --muted: #4a6080;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Exo 2', sans-serif;
+  min-height: 100vh;
+}
+body::before {
+  content:'';
+  position:fixed; inset:0;
+  background-image:
+    linear-gradient(rgba(0,229,255,0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,229,255,0.025) 1px, transparent 1px);
+  background-size: 36px 36px;
+  pointer-events:none; z-index:0;
+}
+
+/* HEADER */
+header {
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  padding: 14px 30px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  position: sticky; top:0; z-index:50;
+}
+.logo-txt { font-family:'Share Tech Mono',monospace; font-size:20px; color:var(--accent); letter-spacing:3px; text-shadow:0 0 12px rgba(0,229,255,.5); }
+.logo-sub { font-size:11px; color:var(--muted); letter-spacing:2px; }
+
+/* TABS */
+.tabs {
+  display:flex; gap:0;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  padding: 0 30px;
+  position: sticky; top:53px; z-index:40;
+}
+.tab {
+  padding: 12px 28px;
+  font-family:'Share Tech Mono',monospace;
+  font-size:12px; letter-spacing:2px;
+  color: var(--muted);
+  cursor:pointer;
+  border-bottom: 2px solid transparent;
+  transition: all .2s;
+  text-transform:uppercase;
+}
+.tab.active { color:var(--accent); border-bottom-color:var(--accent); }
+.tab:hover { color:var(--text); }
+
+.page { display:none; padding:30px; position:relative; z-index:1; }
+.page.active { display:block; }
+
+/* ══ DIAGRAMA DE FLUJO ══ */
+.flow-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  padding: 20px 0;
+}
+
+/* Nodos */
+.node {
+  position:relative;
+  display:flex; align-items:center; justify-content:center;
+  text-align:center;
+  font-family:'Exo 2',sans-serif;
+  font-size:13px; font-weight:600;
+  letter-spacing:.5px;
+  transition: transform .2s, box-shadow .2s;
+  cursor:default;
+  z-index:2;
+}
+.node:hover { transform:scale(1.04); }
+
+/* Oval — inicio/fin */
+.node-oval {
+  width:180px; height:52px;
+  border-radius:50px;
+  background: linear-gradient(135deg, #001a2e, #002a44);
+  border: 2px solid var(--accent);
+  color: var(--accent);
+  box-shadow: 0 0 18px rgba(0,229,255,.3);
+  font-weight:700; letter-spacing:2px;
+}
+.node-oval.fin {
+  border-color: var(--danger);
+  color: var(--danger);
+  box-shadow: 0 0 18px rgba(255,45,85,.3);
+  background: linear-gradient(135deg, #1a0010, #2a0018);
+}
+
+/* Rectángulo — proceso */
+.node-rect {
+  width:240px; min-height:52px; padding:10px 16px;
+  border-radius:8px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+.node-rect:hover { border-color:var(--accent); box-shadow:0 0 12px rgba(0,229,255,.15); }
+
+/* Rombo — decisión */
+.node-diamond-wrap {
+  width:200px; height:80px;
+  display:flex; align-items:center; justify-content:center;
+  position:relative;
+}
+.node-diamond {
+  width:160px; height:70px;
+  transform: rotate(45deg);
+  background: linear-gradient(135deg,#0d1a10,#122010);
+  border: 2px solid var(--ok);
+  position:absolute;
+}
+.node-diamond.warn { border-color:var(--warn); background:linear-gradient(135deg,#1a1500,#201a00); }
+.node-diamond.danger { border-color:var(--danger); background:linear-gradient(135deg,#1a0005,#200008); }
+.node-diamond-txt {
+  position:relative; z-index:3;
+  font-size:12px; font-weight:700;
+  color:var(--ok); text-align:center;
+  line-height:1.3;
+  width:120px;
+}
+.node-diamond.warn + .node-diamond-txt { color:var(--warn); }
+.node-diamond.danger + .node-diamond-txt { color:var(--danger); }
+
+/* Parallelogram — entrada/salida */
+.node-io {
+  width:240px; height:52px; padding:0 20px;
+  background: linear-gradient(135deg,#0a101e,#0d1528);
+  border: 1px solid var(--purple);
+  color: var(--purple);
+  clip-path: polygon(12px 0%, 100% 0%, calc(100% - 12px) 100%, 0% 100%);
+  font-size:12px;
+}
+
+/* Conector flecha */
+.arrow {
+  width:2px; height:28px;
+  background:var(--border);
+  position:relative;
+  display:flex; align-items:flex-end; justify-content:center;
+}
+.arrow::after {
+  content:'▼';
+  font-size:11px; color:var(--muted);
+  position:absolute; bottom:-6px;
+}
+.arrow.accent { background:rgba(0,229,255,.4); }
+.arrow.accent::after { color:var(--accent); }
+
+/* Etiqueta de decisión */
+.decision-row {
+  display:flex; align-items:flex-start; gap:0;
+  width:100%;
+  justify-content:center;
+  position:relative;
+}
+.branch {
+  display:flex; flex-direction:column; align-items:center; gap:0;
+}
+.branch-label {
+  font-family:'Share Tech Mono',monospace;
+  font-size:10px; letter-spacing:1px;
+  padding:2px 8px;
+  border-radius:3px;
+  margin-bottom:4px;
+}
+.label-si { color:var(--ok); background:rgba(57,255,20,.1); border:1px solid rgba(57,255,20,.3); }
+.label-no { color:var(--danger); background:rgba(255,45,85,.1); border:1px solid rgba(255,45,85,.3); }
+
+/* Línea horizontal conector */
+.h-line {
+  height:2px;
+  background:var(--border);
+  align-self:flex-start;
+  margin-top:39px;
+}
+
+/* Leyenda */
+.legend {
+  display:flex; gap:24px; flex-wrap:wrap;
+  margin-bottom:24px;
+  padding:16px 20px;
+  background:var(--panel);
+  border:1px solid var(--border);
+  border-radius:8px;
+}
+.leg-item { display:flex; align-items:center; gap:10px; font-size:12px; color:var(--muted); }
+.leg-oval { width:36px; height:16px; border-radius:20px; border:2px solid var(--accent); }
+.leg-rect { width:30px; height:16px; border-radius:4px; border:1px solid var(--border); background:var(--panel); }
+.leg-diamond-wrap { width:20px; height:20px; position:relative; }
+.leg-diamond { width:14px; height:14px; border:2px solid var(--ok); transform:rotate(45deg); position:absolute; top:3px; left:3px; }
+.leg-io { width:34px; height:16px; border:1px solid var(--purple); clip-path:polygon(4px 0,100% 0,calc(100% - 4px) 100%,0 100%); }
+
+/* ══ CASOS DE USO ══ */
+.uc-diagram {
+  display:grid;
+  grid-template-columns:200px 1fr;
+  gap:20px;
+  min-height:600px;
+}
+
+.uc-actors {
+  display:flex; flex-direction:column; gap:20px; padding-top:40px;
+}
+
+.actor {
+  display:flex; flex-direction:column; align-items:center; gap:8px;
+  cursor:default;
+}
+.actor-icon {
+  font-size:38px; line-height:1;
+  filter:drop-shadow(0 0 8px rgba(0,229,255,.4));
+}
+.actor-name {
+  font-family:'Share Tech Mono',monospace;
+  font-size:11px; color:var(--accent); letter-spacing:1px;
+  text-align:center;
+}
+.actor-desc { font-size:10px; color:var(--muted); text-align:center; line-height:1.4; }
+
+.uc-system {
+  background:var(--panel);
+  border:2px solid var(--border);
+  border-radius:12px;
+  padding:24px;
+  position:relative;
+}
+.uc-system-title {
+  position:absolute; top:-14px; left:24px;
+  background:var(--panel);
+  padding:0 12px;
+  font-family:'Share Tech Mono',monospace;
+  font-size:12px; color:var(--accent); letter-spacing:2px;
+  border:1px solid var(--border); border-radius:4px;
+}
+
+.uc-groups {
+  display:flex; flex-direction:column; gap:16px;
+}
+.uc-group-title {
+  font-size:10px; letter-spacing:2px; color:var(--muted);
+  text-transform:uppercase; margin-bottom:8px;
+  font-family:'Share Tech Mono',monospace;
+}
+.uc-cases {
+  display:flex; flex-wrap:wrap; gap:10px;
+}
+
+.uc-case {
+  padding:10px 18px;
+  border-radius:50px;
+  font-size:12px; font-weight:600;
+  border:1px solid;
+  cursor:pointer;
+  transition:all .2s;
+  position:relative;
+}
+.uc-case:hover { transform:translateY(-2px); filter:brightness(1.2); }
+
+.uc-case.primary { border-color:var(--accent); color:var(--accent); background:rgba(0,229,255,.07); }
+.uc-case.secondary { border-color:var(--muted); color:var(--text); background:rgba(255,255,255,.03); }
+.uc-case.warn { border-color:var(--warn); color:var(--warn); background:rgba(255,204,0,.07); }
+.uc-case.danger { border-color:var(--danger); color:var(--danger); background:rgba(255,45,85,.07); }
+.uc-case.ok { border-color:var(--ok); color:var(--ok); background:rgba(57,255,20,.07); }
+.uc-case.purple { border-color:var(--purple); color:var(--purple); background:rgba(176,106,255,.07); }
+
+/* Include/Extend badges */
+.rel-badge {
+  position:absolute; top:-8px; right:8px;
+  font-size:9px; padding:1px 6px; border-radius:3px;
+  font-family:'Share Tech Mono',monospace; letter-spacing:1px;
+}
+.inc { background:rgba(0,229,255,.2); color:var(--accent); border:1px solid rgba(0,229,255,.4); }
+.ext { background:rgba(176,106,255,.2); color:var(--purple); border:1px solid rgba(176,106,255,.4); }
+
+/* Relaciones SVG */
+.uc-svg-wrap { position:relative; }
+
+/* Detalle card */
+.detail-panel {
+  margin-top:24px;
+  background:var(--panel);
+  border:1px solid var(--border);
+  border-radius:10px;
+  padding:20px 24px;
+  display:none;
+}
+.detail-panel.visible { display:block; }
+.detail-title { font-family:'Rajdhani',sans-serif; font-size:18px; font-weight:700; color:var(--accent); margin-bottom:4px; }
+.detail-table { width:100%; border-collapse:collapse; margin-top:12px; font-size:13px; }
+.detail-table td { padding:7px 12px; border-bottom:1px solid var(--border); vertical-align:top; }
+.detail-table td:first-child { color:var(--muted); width:140px; font-family:'Share Tech Mono',monospace; font-size:11px; }
+.detail-table tr:last-child td { border-bottom:none; }
+
+/* Tooltip popup */
+#tooltip {
+  position:fixed; pointer-events:none;
+  background:#0d1526; border:1px solid var(--accent);
+  color:var(--text); font-size:12px;
+  padding:8px 14px; border-radius:6px;
+  max-width:260px; z-index:999;
+  display:none; line-height:1.6;
+  box-shadow:0 0 20px rgba(0,229,255,.2);
+}
+
+/* Section header */
+.sec-header {
+  display:flex; align-items:center; gap:12px;
+  margin-bottom:20px;
+}
+.sec-title {
+  font-family:'Rajdhani',monospace; font-size:20px;
+  font-weight:700; letter-spacing:3px; text-transform:uppercase;
+}
+.sec-line { flex:1; height:1px; background:linear-gradient(90deg,var(--border),transparent); }
+
+/* Flow container scroll */
+.flow-scroll {
+  overflow-x:auto;
+  padding-bottom:20px;
+}
+.flow-inner {
+  min-width:700px;
+  display:flex; flex-direction:column; align-items:center;
+}
+</style>
+</head>
+<body>
+
+<div id="tooltip"></div>
+
+<!-- HEADER -->
+<header>
+  <span style="font-size:22px">⬡</span>
+  <div>
+    <div class="logo-txt">SYSDIAG</div>
+    <div class="logo-sub">Diagramas del Sistema</div>
+  </div>
+</header>
+
+<!-- TABS -->
+<div class="tabs">
+  <div class="tab active" onclick="switchPage('flujo')">📊 Diagrama de Flujo</div>
+  <div class="tab" onclick="switchPage('casos')">👤 Casos de Uso</div>
+</div>
+
+<!-- ═══════════════════════════════════ -->
+<!--        DIAGRAMA DE FLUJO           -->
+<!-- ═══════════════════════════════════ -->
+<div class="page active" id="page-flujo">
+
+  <div class="sec-header">
+    <div class="sec-title">Diagrama de Flujo</div>
+    <div class="sec-line"></div>
+    <span style="font-size:11px;color:var(--muted);font-family:'Share Tech Mono',monospace">SYSDIAG v2.0</span>
+  </div>
+
+  <!-- Leyenda -->
+  <div class="legend">
+    <div class="leg-item"><div class="leg-oval"></div> Inicio / Fin</div>
+    <div class="leg-item"><div class="leg-rect"></div> Proceso</div>
+    <div class="leg-item"><div class="leg-diamond-wrap"><div class="leg-diamond"></div></div> Decisión</div>
+    <div class="leg-item"><div class="leg-io"></div> Entrada / Salida</div>
+  </div>
+
+  <div class="flow-scroll">
+  <div class="flow-inner">
+
+    <!-- INICIO -->
+    <div class="node node-oval">INICIO</div>
+    <div class="arrow accent"></div>
+
+    <!-- Paso 1 -->
+    <div class="node node-rect">🖥️ El usuario abre SysDiag</div>
+    <div class="arrow"></div>
+
+    <!-- Paso 2 -->
+    <div class="node node-rect">⚙️ El sistema inicializa los módulos<br><small style="color:var(--muted);font-size:11px">(psutil, sensores, red)</small></div>
+    <div class="arrow"></div>
+
+    <!-- Paso 3 -->
+    <div class="node node-io">📥 Seleccionar modo: Escaneo / Monitoreo</div>
+    <div class="arrow accent"></div>
+
+    <!-- Decisión Modo -->
+    <div style="display:flex;flex-direction:column;align-items:center;">
+      <div class="node-diamond-wrap">
+        <div class="node-diamond warn"></div>
+        <div class="node-diamond-txt" style="color:var(--warn)">¿Modo<br>elegido?</div>
+      </div>
+    </div>
+
+    <!-- Bifurcación Escaneo / Monitoreo -->
+    <div style="display:flex;align-items:flex-start;justify-content:center;gap:0;width:600px;margin:0 auto;">
+      <!-- Rama izquierda: Escaneo -->
+      <div style="display:flex;flex-direction:column;align-items:center;width:280px;">
+        <div class="h-line" style="width:100px;margin-top:0;margin-bottom:0;height:2px;background:var(--border);"></div>
+        <div style="height:20px;width:2px;background:var(--border);"></div>
+        <div class="branch-label label-si">ESCANEO ÚNICO</div>
+        <div class="node node-rect" style="width:200px;font-size:12px">🔍 Recolectar métricas<br>una sola vez</div>
+      </div>
+      <!-- Rama derecha: Monitoreo -->
+      <div style="display:flex;flex-direction:column;align-items:center;width:280px;">
+        <div class="h-line" style="width:100px;height:2px;background:var(--border);margin-bottom:0;"></div>
+        <div style="height:20px;width:2px;background:var(--border);"></div>
+        <div class="branch-label label-no">MONITOREO EN VIVO</div>
+        <div class="node node-rect" style="width:200px;font-size:12px">🔄 Iniciar bucle<br>cada 3 segundos</div>
+      </div>
+    </div>
+
+    <!-- Convergencia -->
+    <div style="height:20px;width:2px;background:var(--border);margin:0 auto;"></div>
+
+    <!-- RECOLECCIÓN DATOS -->
+    <div class="node node-rect" style="background:linear-gradient(135deg,#0a0f1e,#0d1428);border-color:rgba(0,229,255,.3)">
+      📊 Recolectar métricas del sistema
+      <div style="font-size:11px;color:var(--muted);margin-top:4px">CPU · RAM · Disco · GPU · Temperatura · Red</div>
+    </div>
+    <div class="arrow"></div>
+
+    <!-- Decisión CPU -->
+    <div class="node-diamond-wrap">
+      <div class="node-diamond"></div>
+      <div class="node-diamond-txt">¿CPU<br>&gt; 80%?</div>
+    </div>
+
+    <div style="display:flex;gap:80px;align-items:flex-start;justify-content:center;margin:0 auto;">
+      <div style="display:flex;flex-direction:column;align-items:center;">
+        <div style="height:16px;width:2px;background:var(--border);"></div>
+        <div class="branch-label label-si">SÍ</div>
+        <div class="node node-rect" style="width:180px;font-size:11px;border-color:rgba(255,45,85,.4);color:var(--danger)">🔴 Marcar alerta<br>CRÍTICA en CPU</div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center;">
+        <div style="height:16px;width:2px;background:var(--border);"></div>
+        <div class="branch-label label-no">NO</div>
+        <div class="node node-rect" style="width:180px;font-size:11px;border-color:rgba(57,255,20,.3);color:var(--ok)">🟢 CPU en rango<br>normal</div>
+      </div>
+    </div>
+
+    <div style="height:20px;width:2px;background:var(--border);margin:0 auto;"></div>
+
+    <!-- Decisión RAM -->
+    <div class="node-diamond-wrap">
+      <div class="node-diamond warn"></div>
+      <div class="node-diamond-txt" style="color:var(--warn)">¿RAM<br>&gt; 70%?</div>
+    </div>
+
+    <div style="display:flex;gap:80px;align-items:flex-start;justify-content:center;margin:0 auto;">
+      <div style="display:flex;flex-direction:column;align-items:center;">
+        <div style="height:16px;width:2px;background:var(--border);"></div>
+        <div class="branch-label label-si">SÍ</div>
+        <div class="node node-rect" style="width:180px;font-size:11px;border-color:rgba(255,204,0,.4);color:var(--warn)">🟡 Advertencia<br>de memoria alta</div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center;">
+        <div style="height:16px;width:2px;background:var(--border);"></div>
+        <div class="branch-label label-no">NO</div>
+        <div class="node node-rect" style="width:180px;font-size:11px;border-color:rgba(57,255,20,.3);color:var(--ok)">🟢 RAM<br>estable</div>
+      </div>
+    </div>
+
+    <div style="height:20px;width:2px;background:var(--border);margin:0 auto;"></div>
+
+    <!-- Decisión TEMP -->
+    <div class="node-diamond-wrap">
+      <div class="node-diamond danger"></div>
+      <div class="node-diamond-txt" style="color:var(--danger)">¿Temp<br>&gt; 85°C?</div>
+    </div>
+
+    <div style="display:flex;gap:80px;align-items:flex-start;justify-content:center;margin:0 auto;">
+      <div style="display:flex;flex-direction:column;align-items:center;">
+        <div style="height:16px;width:2px;background:var(--border);"></div>
+        <div class="branch-label label-si">SÍ</div>
+        <div class="node node-rect" style="width:180px;font-size:11px;border-color:rgba(255,45,85,.4);color:var(--danger)">🔴 Alerta<br>sobrecalentamiento</div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center;">
+        <div style="height:16px;width:2px;background:var(--border);"></div>
+        <div class="branch-label label-no">NO</div>
+        <div class="node node-rect" style="width:180px;font-size:11px;border-color:rgba(57,255,20,.3);color:var(--ok)">🟢 Temperatura<br>segura</div>
+      </div>
+    </div>
+
+    <div style="height:20px;width:2px;background:var(--border);margin:0 auto;"></div>
+
+    <!-- Calcular -->
+    <div class="node node-rect" style="border-color:rgba(0,229,255,.3);background:linear-gradient(135deg,#080d1a,#0b1222)">
+      🧮 Calcular puntuación global (0–100)<br>
+      <small style="color:var(--muted);font-size:11px">Detectar cuello de botella principal</small>
+    </div>
+    <div class="arrow accent"></div>
+
+    <!-- Salida -->
+    <div class="node node-io">📤 Mostrar resultados, alertas y recomendaciones</div>
+    <div class="arrow"></div>
+
+    <!-- Decisión continuar -->
+    <div class="node-diamond-wrap">
+      <div class="node-diamond warn"></div>
+      <div class="node-diamond-txt" style="color:var(--warn)">¿Modo<br>en vivo?</div>
+    </div>
+
+    <div style="display:flex;gap:80px;align-items:flex-start;justify-content:center;margin:0 auto;">
+      <div style="display:flex;flex-direction:column;align-items:center;">
+        <div style="height:16px;width:2px;background:var(--border);"></div>
+        <div class="branch-label label-si">SÍ</div>
+        <div class="node node-rect" style="width:180px;font-size:11px">⏳ Esperar 3 segundos<br>→ repetir ciclo</div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center;">
+        <div style="height:16px;width:2px;background:var(--border);"></div>
+        <div class="branch-label label-no">NO</div>
+        <div class="node node-rect" style="width:180px;font-size:11px">🛑 Terminar programa</div>
+      </div>
+    </div>
+
+    <div style="height:24px;width:2px;background:var(--border);margin:0 auto;"></div>
+
+    <!-- FIN -->
+    <div class="node node-oval fin">FIN</div>
+    <div style="height:30px;"></div>
+
+  </div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════ -->
+<!--         CASOS DE USO               -->
+<!-- ═══════════════════════════════════ -->
+<div class="page" id="page-casos">
+
+  <div class="sec-header">
+    <div class="sec-title">Diagrama de Casos de Uso</div>
+    <div class="sec-line"></div>
+    <span style="font-size:11px;color:var(--muted);font-family:'Share Tech Mono',monospace">UML — SYSDIAG</span>
+  </div>
+
+  <p style="font-size:12px;color:var(--muted);margin-bottom:20px;font-family:'Share Tech Mono',monospace">
+    💡 Haz clic en cualquier caso de uso para ver sus detalles
+  </p>
+
+  <div class="uc-diagram">
+
+    <!-- ACTORES -->
+    <div class="uc-actors">
+      <div class="actor">
+        <div class="actor-icon">👤</div>
+        <div class="actor-name">USUARIO</div>
+        <div class="actor-desc">Persona que opera<br>el programa</div>
+      </div>
+
+      <div style="height:40px;width:2px;background:var(--border);margin:0 auto;"></div>
+
+      <div class="actor">
+        <div class="actor-icon">🖥️</div>
+        <div class="actor-name">SISTEMA PC</div>
+        <div class="actor-desc">Hardware y SO<br>del equipo</div>
+      </div>
+
+      <div style="height:40px;width:2px;background:var(--border);margin:0 auto;"></div>
+
+      <div class="actor">
+        <div class="actor-icon">⚙️</div>
+        <div class="actor-name">MOTOR DIAG</div>
+        <div class="actor-desc">Módulo interno<br>de análisis</div>
+      </div>
+    </div>
+
+    <!-- SISTEMA -->
+    <div class="uc-system">
+      <div class="uc-system-title">«sistema» SYSDIAG</div>
+
+      <div class="uc-groups">
+
+        <!-- Grupo 1: Inicio -->
+        <div>
+          <div class="uc-group-title">── Inicio y Configuración</div>
+          <div class="uc-cases">
+            <div class="uc-case primary" onclick="showDetail('iniciar')">Iniciar programa</div>
+            <div class="uc-case secondary" onclick="showDetail('modo')">Seleccionar modo de análisis</div>
+          </div>
+        </div>
+
+        <!-- Grupo 2: Recolección -->
+        <div>
+          <div class="uc-group-title">── Recolección de Datos</div>
+          <div class="uc-cases">
+            <div class="uc-case primary" onclick="showDetail('escaneo')">
+              Ejecutar escaneo
+            </div>
+            <div class="uc-case secondary" onclick="showDetail('monitoreo')">
+              Activar monitoreo en vivo
+              <span class="rel-badge ext">«extend»</span>
+            </div>
+            <div class="uc-case secondary" onclick="showDetail('leer-cpu')">
+              Leer métricas CPU
+              <span class="rel-badge inc">«include»</span>
+            </div>
+            <div class="uc-case secondary" onclick="showDetail('leer-ram')">
+              Leer métricas RAM
+              <span class="rel-badge inc">«include»</span>
+            </div>
+            <div class="uc-case secondary" onclick="showDetail('leer-disco')">
+              Leer métricas Disco
+              <span class="rel-badge inc">«include»</span>
+            </div>
+            <div class="uc-case secondary" onclick="showDetail('leer-temp')">
+              Leer temperatura
+              <span class="rel-badge inc">«include»</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Grupo 3: Análisis -->
+        <div>
+          <div class="uc-group-title">── Análisis e Inteligencia</div>
+          <div class="uc-cases">
+            <div class="uc-case warn" onclick="showDetail('detectar')">Detectar problemas</div>
+            <div class="uc-case warn" onclick="showDetail('cuello')">Identificar cuello de botella</div>
+            <div class="uc-case ok" onclick="showDetail('score')">Calcular puntuación global</div>
+          </div>
+        </div>
+
+        <!-- Grupo 4: Salida -->
+        <div>
+          <div class="uc-group-title">── Presentación de Resultados</div>
+          <div class="uc-cases">
+            <div class="uc-case ok" onclick="showDetail('dashboard')">Ver dashboard de métricas</div>
+            <div class="uc-case danger" onclick="showDetail('alertas')">Ver alertas críticas</div>
+            <div class="uc-case purple" onclick="showDetail('recomendaciones')">Ver recomendaciones</div>
+            <div class="uc-case purple" onclick="showDetail('procesos')">Ver top procesos</div>
+          </div>
+        </div>
+
+        <!-- Grupo 5: Control -->
+        <div>
+          <div class="uc-group-title">── Control del Sistema</div>
+          <div class="uc-cases">
+            <div class="uc-case secondary" onclick="showDetail('pausar')">Pausar monitoreo</div>
+            <div class="uc-case secondary" onclick="showDetail('cerrar')">Cerrar programa</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- PANEL DE DETALLE -->
+  <div class="detail-panel" id="detailPanel">
+    <div class="detail-title" id="detailTitle">—</div>
+    <div id="detailDesc" style="font-size:13px;color:var(--muted);margin-bottom:8px;"></div>
+    <table class="detail-table" id="detailTable"></table>
+  </div>
+
+  <!-- RELACIONES -->
+  <div style="margin-top:28px; padding:20px; background:var(--panel); border:1px solid var(--border); border-radius:10px;">
+    <div style="font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:2px;margin-bottom:16px;">RELACIONES DEL DIAGRAMA</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;font-size:12px;">
+      <div style="padding:10px 14px;border:1px solid rgba(0,229,255,.3);border-radius:6px;">
+        <span style="color:var(--accent);font-family:'Share Tech Mono',monospace">«include»</span><br>
+        <span style="color:var(--muted)">El caso base <b style="color:var(--text)">siempre</b> incluye el caso relacionado al ejecutarse.</span>
+      </div>
+      <div style="padding:10px 14px;border:1px solid rgba(176,106,255,.3);border-radius:6px;">
+        <span style="color:var(--purple);font-family:'Share Tech Mono',monospace">«extend»</span><br>
+        <span style="color:var(--muted)">El caso se activa <b style="color:var(--text)">opcionalmente</b> bajo ciertas condiciones.</span>
+      </div>
+      <div style="padding:10px 14px;border:1px solid rgba(57,255,20,.3);border-radius:6px;">
+        <span style="color:var(--ok);font-family:'Share Tech Mono',monospace">asociación</span><br>
+        <span style="color:var(--muted)">El actor <b style="color:var(--text)">interactúa directamente</b> con el caso de uso.</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ════════════ JS ════════════ -->
+<script>
+function switchPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  const tabs = document.querySelectorAll('.tab');
+  if(name==='flujo') tabs[0].classList.add('active');
+  else tabs[1].classList.add('active');
+}
+
+const detalles = {
+  'iniciar': {
+    title: 'Iniciar programa',
+    desc: 'El usuario ejecuta SysDiag desde el CMD o doble clic. El sistema carga las bibliotecas y prepara la interfaz.',
+    actor: 'Usuario',
+    precondicion: 'Python y psutil instalados',
+    postcondicion: 'Menú principal visible',
+    flujo: 'Usuario ejecuta archivo → Sistema carga módulos → Se muestra menú de selección',
+    tipo: 'Caso primario'
+  },
+  'modo': {
+    title: 'Seleccionar modo de análisis',
+    desc: 'El usuario elige entre Escaneo Único (muestra resultados una vez) o Monitoreo en Vivo (se actualiza cada 3 seg).',
+    actor: 'Usuario',
+    precondicion: 'Programa iniciado',
+    postcondicion: 'Modo seleccionado y ejecutándose',
+    flujo: 'Se muestra menú → Usuario elige 1 o 2 → Sistema inicia el modo correspondiente',
+    tipo: 'Caso primario'
+  },
+  'escaneo': {
+    title: 'Ejecutar escaneo',
+    desc: 'El motor de diagnóstico recolecta todas las métricas del sistema en un solo ciclo y genera el reporte completo.',
+    actor: 'Usuario / Motor Diag',
+    precondicion: 'Modo "Escaneo Único" seleccionado',
+    postcondicion: 'Reporte generado y visible',
+    flujo: 'Motor recolecta CPU → RAM → Disco → Temp → Analiza → Muestra resultados',
+    tipo: 'Caso primario — incluye: leer CPU, RAM, Disco, Temperatura'
+  },
+  'monitoreo': {
+    title: 'Activar monitoreo en vivo',
+    desc: 'Modo continuo donde el sistema repite el ciclo de diagnóstico cada 3 segundos, actualizando los datos en pantalla.',
+    actor: 'Usuario / Motor Diag',
+    precondicion: 'Modo "Monitoreo en Vivo" seleccionado',
+    postcondicion: 'Bucle activo, pantalla actualizándose',
+    flujo: 'Recolectar métricas → Mostrar → Esperar 3s → Repetir (hasta Ctrl+C)',
+    tipo: 'Extensión del caso Ejecutar Escaneo'
+  },
+  'leer-cpu': {
+    title: 'Leer métricas CPU',
+    desc: 'El motor consulta psutil para obtener el porcentaje de uso por núcleo, frecuencia actual y cantidad de hilos.',
+    actor: 'Motor Diag / Sistema PC',
+    precondicion: 'psutil instalado y en ejecución',
+    postcondicion: 'Datos de CPU disponibles en memoria',
+    flujo: 'psutil.cpu_percent() → cpu_freq() → cpu_count() → guardar resultados',
+    tipo: 'Incluido en Ejecutar Escaneo'
+  },
+  'leer-ram': {
+    title: 'Leer métricas RAM',
+    desc: 'Obtiene RAM total, usada, disponible y porcentaje de uso. También lee el uso de memoria SWAP (virtual).',
+    actor: 'Motor Diag / Sistema PC',
+    precondicion: 'psutil instalado',
+    postcondicion: 'Datos de memoria disponibles',
+    flujo: 'psutil.virtual_memory() → swap_memory() → convertir a GB → guardar',
+    tipo: 'Incluido en Ejecutar Escaneo'
+  },
+  'leer-disco': {
+    title: 'Leer métricas Disco',
+    desc: 'Mide el espacio total, usado y libre del disco principal. También mide las operaciones de lectura/escritura.',
+    actor: 'Motor Diag / Sistema PC',
+    precondicion: 'Disco montado en el sistema',
+    postcondicion: 'Datos de almacenamiento disponibles',
+    flujo: 'psutil.disk_usage("/") → disk_io_counters() → calcular % → guardar',
+    tipo: 'Incluido en Ejecutar Escaneo'
+  },
+  'leer-temp': {
+    title: 'Leer temperatura',
+    desc: 'Intenta leer la temperatura del CPU y GPU mediante los sensores del sistema. En Windows puede no estar disponible.',
+    actor: 'Motor Diag / Sistema PC',
+    precondicion: 'Drivers de sensores instalados',
+    postcondicion: 'Temperatura disponible o marcada como N/D',
+    flujo: 'sensors_temperatures() → buscar CPU/GPU → devolver valor o None',
+    tipo: 'Incluido en Ejecutar Escaneo — puede retornar N/D'
+  },
+  'detectar': {
+    title: 'Detectar problemas',
+    desc: 'El motor compara cada métrica contra umbrales definidos (CPU>80%, RAM>70%, Temp>85°C) y genera una lista de alertas.',
+    actor: 'Motor Diag',
+    precondicion: 'Métricas recolectadas',
+    postcondicion: 'Lista de problemas con severidad (Crítico / Advertencia / OK)',
+    flujo: 'Comparar métricas → Asignar severidad → Generar descripción y solución',
+    tipo: 'Caso de análisis automático'
+  },
+  'cuello': {
+    title: 'Identificar cuello de botella',
+    desc: 'Compara el porcentaje de carga de CPU, RAM, Disco y GPU para determinar cuál es el componente que más limita al sistema.',
+    actor: 'Motor Diag',
+    precondicion: 'Métricas de todos los componentes disponibles',
+    postcondicion: 'Cuello de botella identificado con recomendación',
+    flujo: 'Comparar cargas → max(CPU,RAM,Disco,GPU) → generar recomendación específica',
+    tipo: 'Análisis automático'
+  },
+  'score': {
+    title: 'Calcular puntuación global',
+    desc: 'Genera un número de 0 a 100 que resume la salud general del sistema. Considera CPU (40%), RAM (20%), Disco (10%) y temperatura.',
+    actor: 'Motor Diag',
+    precondicion: 'Todas las métricas disponibles',
+    postcondicion: 'Puntuación y clasificación (Óptimo/Regular/Crítico)',
+    flujo: '100 - (CPU×0.4) - (RAM×0.2) - (Disco×0.1) - penalizaciones de temperatura',
+    tipo: 'Cálculo automático'
+  },
+  'dashboard': {
+    title: 'Ver dashboard de métricas',
+    desc: 'El usuario visualiza todas las métricas en barras de progreso, tarjetas y gráficas. La interfaz se actualiza en tiempo real.',
+    actor: 'Usuario',
+    precondicion: 'Escaneo completado',
+    postcondicion: 'Datos visibles en la pantalla',
+    flujo: 'Resultados → Renderizar barras → Mostrar valores → Actualizar cada ciclo',
+    tipo: 'Caso de visualización'
+  },
+  'alertas': {
+    title: 'Ver alertas críticas',
+    desc: 'Muestra la lista de problemas detectados con código de color: rojo (crítico), amarillo (advertencia), verde (ok).',
+    actor: 'Usuario',
+    precondicion: 'detectar_problemas() ejecutado',
+    postcondicion: 'Usuario informado de los problemas',
+    flujo: 'Lista de problemas → Ordenar por severidad → Mostrar con colores y soluciones',
+    tipo: 'Caso de salida'
+  },
+  'recomendaciones': {
+    title: 'Ver recomendaciones',
+    desc: 'Para cada problema detectado y para el cuello de botella, el sistema genera pasos concretos de solución.',
+    actor: 'Usuario',
+    precondicion: 'Problemas detectados y cuello identificado',
+    postcondicion: 'Usuario con plan de acción claro',
+    flujo: 'Cuello identificado → Seleccionar recomendación correspondiente → Mostrar pasos',
+    tipo: 'Caso de salida'
+  },
+  'procesos': {
+    title: 'Ver top procesos',
+    desc: 'Muestra los 10 procesos que más CPU consumen en ese momento, con su PID, nombre y porcentaje de CPU y RAM.',
+    actor: 'Usuario',
+    precondicion: 'psutil ejecutándose',
+    postcondicion: 'Lista de procesos visible y ordenada',
+    flujo: 'process_iter() → ordenar por cpu_percent DESC → mostrar top 10',
+    tipo: 'Caso de visualización'
+  },
+  'pausar': {
+    title: 'Pausar monitoreo',
+    desc: 'En modo en vivo, el usuario puede pausar el ciclo de actualización sin cerrar el programa.',
+    actor: 'Usuario',
+    precondicion: 'Monitoreo en vivo activo',
+    postcondicion: 'Ciclo detenido temporalmente',
+    flujo: 'Usuario presiona P → bucle espera → usuario presiona P de nuevo → reanuda',
+    tipo: 'Control de flujo'
+  },
+  'cerrar': {
+    title: 'Cerrar programa',
+    desc: 'El usuario termina la ejecución del programa. En CMD con Ctrl+C, en GUI cerrando la ventana.',
+    actor: 'Usuario',
+    precondicion: 'Programa en ejecución',
+    postcondicion: 'Programa cerrado limpiamente',
+    flujo: 'Ctrl+C o cerrar ventana → capturar KeyboardInterrupt → mensaje de despedida → exit()',
+    tipo: 'Caso de fin'
+  }
+};
+
+function showDetail(key) {
+  const d = detalles[key];
+  if (!d) return;
+  const panel = document.getElementById('detailPanel');
+  document.getElementById('detailTitle').textContent = d.title;
+  document.getElementById('detailDesc').textContent = d.desc;
+  document.getElementById('detailTable').innerHTML = `
+    <tr><td>Actor(es)</td><td>${d.actor}</td></tr>
+    <tr><td>Precondición</td><td>${d.precondicion}</td></tr>
+    <tr><td>Postcondición</td><td>${d.postcondicion}</td></tr>
+    <tr><td>Flujo principal</td><td>${d.flujo}</td></tr>
+    <tr><td>Tipo</td><td>${d.tipo}</td></tr>
+  `;
+  panel.classList.add('visible');
+  panel.scrollIntoView({ behavior:'smooth', block:'nearest' });
+}
+</script>
+</body>
+</html>
